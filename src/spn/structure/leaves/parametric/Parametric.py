@@ -336,7 +336,7 @@ class Exponential(Parametric):
         return __class__.property_type(l=self.l)
 
 
-def create_parametric_leaf(data, ds_context, scope):
+def create_parametric_leaf(data, ds_context, scope, alpha=0):
     from spn.structure.leaves.parametric.MLE import update_parametric_parameters_mle
 
     # assert len(scope) == 1, "scope of univariate parametric for more than one variable?"
@@ -362,6 +362,6 @@ def create_parametric_leaf(data, ds_context, scope):
 
     node.scope.extend(scope)
 
-    update_parametric_parameters_mle(node, data)
+    update_parametric_parameters_mle(node, data,alpha)
 
     return node

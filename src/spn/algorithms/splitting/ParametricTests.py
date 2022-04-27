@@ -5,7 +5,7 @@ Created on June 21, 2018
 """
 
 import numpy as np
-import numba
+#import numba
 
 from collections import deque
 
@@ -15,13 +15,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@numba.njit
+#@numba.njit(parallel={"inplace_binop":False})
 def count_nonzero(array):
     nonzero_coords, = np.nonzero(array)
     return len(nonzero_coords)
 
 
-@numba.njit
+#@numba.njit(parallel={"inplace_binop":False})
 def g_test(feature_id_1, feature_id_2, local_data, feature_vals, g_factor):
     """
     Applying a G-test on the two features (represented by ids) on the data
@@ -43,13 +43,14 @@ def g_test(feature_id_1, feature_id_2, local_data, feature_vals, g_factor):
     # n_instances = len(instance_ids)
     n_instances = len(local_data)
 
-    feature_size_1 = feature_vals[feature_id_1]
-    feature_size_2 = feature_vals[feature_id_2]
+    feature_size_1 = len(feature_vals[feature_id_1])
+    feature_size_2 = len(feature_vals[feature_id_2])
 
     #
     # support vectors for counting the occurrences
     feature_tot_1 = np.zeros(feature_size_1, dtype=np.uint32)
     feature_tot_2 = np.zeros(feature_size_2, dtype=np.uint32)
+    #print(feature_vals)
     co_occ_matrix = np.zeros((feature_size_1, feature_size_2), dtype=np.uint32)
 
     #
@@ -90,7 +91,7 @@ def g_test(feature_id_1, feature_id_2, local_data, feature_vals, g_factor):
     return (2 * g_val) < dep_val
 
 
-@numba.jit
+#@numba.njit(parallel={"inplace_binop":False})
 def gtest_greedy_feature_split(local_data, feature_vals, g_factor, rand_gen):
     """
     Implementing the G-test based feature splitting as in
@@ -98,6 +99,8 @@ def gtest_greedy_feature_split(local_data, feature_vals, g_factor, rand_gen):
     """
     # n_features = data_slice.n_features()
     n_features = local_data.shape[1]
+    
+   # print(feature_vals)
 
     feature_ids_mask = np.ones(n_features, dtype=bool)
 
@@ -117,12 +120,11 @@ def gtest_greedy_feature_split(local_data, feature_vals, g_factor, rand_gen):
         # get one
         current_feature_id = features_to_process.popleft()
         # feature_id_1 = data_slice.feature_ids[current_feature_id]
-
         # features to remove later
         features_to_remove = np.zeros(n_features, dtype=bool)
 
         for other_feature_id in feature_ids_mask.nonzero()[0]:
-
+           # print(str(other_feature_id)+" " +str(current_feature_id))
             #
             # logger.info('considering other features', other_feature_id)
             # feature_id_2 = data_slice.feature_ids[other_feature_id]

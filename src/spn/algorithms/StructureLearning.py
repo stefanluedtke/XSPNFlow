@@ -2,6 +2,7 @@
 Created on March 20, 2018
 
 @author: Alejandro Molina
+@author: Stefan Luedtke
 """
 import logging
 from collections import deque
@@ -24,6 +25,8 @@ from spn.structure.Base import Product, Sum, assign_ids
 import multiprocessing
 import os
 
+from spn.algorithms.Exchangeability import *
+
 parallel = True
 
 if parallel:
@@ -40,7 +43,77 @@ class Operation(Enum):
     NAIVE_FACTORIZATION = 4
     REMOVE_UNINFORMATIVE_FEATURES = 5
     CONDITIONING = 6
+    CREATE_EXCHANGEABLE = 7
 
+
+
+def get_next_operation_exchangeability(min_instances_slice=100, min_features_slice=1, multivariate_leaf=False, cluster_univariate=False):
+    def next_operation(
+        data,
+        scope,
+        create_leaf,
+        no_clusters=False,
+        no_independencies=False,
+        is_first=False,
+        cluster_first=True,
+        no_exchangeability=False
+    ):
+
+        minimalFeatures = len(scope) == min_features_slice
+        minimalInstances = data.shape[0] <= min_instances_slice
+
+        if minimalFeatures: #reached minimal number of features: cannot split, can only create leaf or cluster
+            if minimalInstances or no_clusters: #cannot cluster: need to create leaf 
+                return Operation.CREATE_LEAF, None
+            else: #could cluster if we allowed that in this case
+                if cluster_univariate:
+                    return Operation.SPLIT_ROWS, None
+                else:
+                    return Operation.CREATE_LEAF, None
+                
+        ####################################
+        #start removing "uninformative" features 
+        uninformative_features_idx = np.var(data[:, 0 : len(scope)], 0) == 0
+        ncols_zero_variance = np.sum(uninformative_features_idx)
+        if ncols_zero_variance > 0:
+            if ncols_zero_variance == data.shape[1]:
+                if multivariate_leaf:
+                    return Operation.CREATE_LEAF, None
+                else:
+                    return Operation.NAIVE_FACTORIZATION, None
+            else:
+                return (
+                    Operation.REMOVE_UNINFORMATIVE_FEATURES,
+                    np.arange(len(scope))[uninformative_features_idx].tolist(),
+                )
+        #end
+        ######################################
+        
+        #cannot do anything useful, because either minimal instances reached or no_clusters&no_independencies&no_exchangeability
+        if minimalInstances or (no_clusters and no_independencies and no_exchangeability):
+            if multivariate_leaf:
+                return Operation.CREATE_LEAF, None
+            else:
+                return Operation.NAIVE_FACTORIZATION, None
+            
+        
+        #first, try exchangeability. if that's not possible,
+        #then try independence. if that's also not the case, then try clustering.
+        if no_exchangeability:
+            if no_independencies:
+                return Operation.SPLIT_ROWS, None
+            else:
+                return Operation.SPLIT_COLUMNS, None
+        return Operation.CREATE_EXCHANGEABLE, None
+    
+        #when called the first time: either start wth splitting or clustering (default: start with clustering)
+        if is_first:
+            if cluster_first:
+              return Operation.SPLIT_COLUMNS, None
+            else:
+                return Operation.SPLIT_COLUMNS, None
+    
+    return next_operation
 
 def get_next_operation(min_instances_slice=100, min_features_slice=1, multivariate_leaf=False, cluster_univariate=False):
     def next_operation(
@@ -51,6 +124,7 @@ def get_next_operation(min_instances_slice=100, min_features_slice=1, multivaria
         no_independencies=False,
         is_first=False,
         cluster_first=True,
+        no_exchangeability=False,
     ):
 
         minimalFeatures = len(scope) == min_features_slice
@@ -121,6 +195,9 @@ def learn_structure(
     next_operation=get_next_operation(),
     initial_scope=None,
     data_slicer=default_slicer,
+    isExchangeableTest= isExchangeable_viaChiSquared_pairwise,
+    alpha=0,
+    alpha_exchangeable=0,
 ):
     assert dataset is not None
     assert ds_context is not None
@@ -142,11 +219,11 @@ def learn_structure(
         assert len(initial_scope) > dataset.shape[1], "check initial scope: %s" % initial_scope
 
     tasks = deque()
-    tasks.append((dataset, root, 0, initial_scope, False, False))
+    tasks.append((dataset, root, 0, initial_scope, False, False, False))
 
     while tasks:
 
-        local_data, parent, children_pos, scope, no_clusters, no_independencies = tasks.popleft()
+        local_data, parent, children_pos, scope, no_clusters, no_independencies,no_exchangeability = tasks.popleft()
 
         operation, op_params = next_operation(
             local_data,
@@ -155,8 +232,9 @@ def learn_structure(
             no_clusters=no_clusters,
             no_independencies=no_independencies,
             is_first=(parent is root),
+            no_exchangeability=no_exchangeability,
         )
-
+        
         logging.debug("OP: {} on slice {} (remaining tasks {})".format(operation, local_data.shape, len(tasks)))
 
         if operation == Operation.REMOVE_UNINFORMATIVE_FEATURES:
@@ -174,6 +252,7 @@ def learn_structure(
                         node,
                         len(node.children) - 1,
                         [scope[col]],
+                        True,
                         True,
                         True,
                     )
@@ -200,6 +279,7 @@ def learn_structure(
                     rest_scope,
                     next_final,
                     next_final,
+                    next_final, 
                 )
             )
 
@@ -215,7 +295,7 @@ def learn_structure(
             )
 
             if len(data_slices) == 1:
-                tasks.append((local_data, parent, children_pos, scope, True, False))
+                tasks.append((local_data, parent, children_pos, scope, True, no_independencies, no_exchangeability))
                 continue
 
             node = Sum()
@@ -228,7 +308,7 @@ def learn_structure(
 
                 node.children.append(None)
                 node.weights.append(proportion)
-                tasks.append((data_slice, node, len(node.children) - 1, scope, False, False))
+                tasks.append((data_slice, node, len(node.children) - 1, scope, False, False, False)) 
 
             continue
 
@@ -239,9 +319,11 @@ def learn_structure(
             logging.debug(
                 "\t\tfound {} col clusters (in {:.5f} secs)".format(len(data_slices), split_end_t - split_start_t)
             )
+            
+           
 
             if len(data_slices) == 1:
-                tasks.append((local_data, parent, children_pos, scope, False, True))
+                tasks.append((local_data, parent, children_pos, scope, no_clusters, True, no_exchangeability)) 
                 assert np.shape(data_slices[0][0]) == np.shape(local_data)
                 assert data_slices[0][1] == scope
                 continue
@@ -249,12 +331,15 @@ def learn_structure(
             node = Product()
             node.scope.extend(scope)
             parent.children[children_pos] = node
+            
+            
 
             for data_slice, scope_slice, _ in data_slices:
+                #print(scope_slice)
                 assert isinstance(scope_slice, list), "slice must be a list"
 
                 node.children.append(None)
-                tasks.append((data_slice, node, len(node.children) - 1, scope_slice, False, False))
+                tasks.append((data_slice, node, len(node.children) - 1, scope_slice, False, False, False)) 
 
             continue
 
@@ -291,7 +376,7 @@ def learn_structure(
 
         elif operation == Operation.CREATE_LEAF:
             leaf_start_t = perf_counter()
-            node = create_leaf(local_data, ds_context, scope)
+            node = create_leaf(local_data, ds_context, scope,alpha=alpha)
             parent.children[children_pos] = node
             leaf_end_t = perf_counter()
 
@@ -300,6 +385,22 @@ def learn_structure(
                     node.__class__.__name__, scope, leaf_end_t - leaf_start_t
                 )
             )
+            
+            continue
+            
+        elif operation == Operation.CREATE_EXCHANGEABLE:
+            #this actually means: 
+            #"test whether there's exchangeability. if there is, then create exch leaf, otherwise 
+            #add another task where no_exchangeability is set to true
+            #(content of task queue: local_data, parent, children_pos, scope, no_clusters, no_independencies, no_exchangeability)
+            if isExchangeableTest(local_data): 
+                #create exchangeable leaf 
+                node = create_exchangeable_leaf(local_data, ds_context, scope, alpha_exchangeable)
+                parent.children[children_pos] = node
+            else:
+                #not exchangeable: need to add a task
+                tasks.append((local_data, parent, children_pos, scope, no_clusters, no_independencies, True))
+            continue
 
         else:
             raise Exception("Invalid operation: " + operation)
@@ -313,3 +414,4 @@ def learn_structure(
     assert valid, "invalid spn: " + err
 
     return node
+

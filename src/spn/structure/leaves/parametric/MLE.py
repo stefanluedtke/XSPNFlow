@@ -24,7 +24,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def update_parametric_parameters_mle(node, data):
+def update_parametric_parameters_mle(node, data,alpha=0):
     if data.shape[0] == 0:
         return
 
@@ -69,7 +69,7 @@ def update_parametric_parameters_mle(node, data):
         node.stdev = lognorm_params[0]
 
     elif isinstance(node, Bernoulli):
-        node.p = data.sum().item() / len(data)
+        node.p = (data.sum().item() + alpha) / (len(data) + (2*alpha)) # with Laplace smoothing
 
     elif isinstance(node, Poisson):
         node.mean = np.mean(data).item()
@@ -87,7 +87,7 @@ def update_parametric_parameters_mle(node, data):
         for i in range(node.k):
             node.p[i] = np.sum(data == i)
             psum += node.p[i]
-        node.p = node.p / psum
+        node.p = (node.p + alpha) / (psum + (len(node.p) * alpha)) # Laplace smoothing
         node.p = node.p.tolist()
 
     elif isinstance(node, CategoricalDictionary):
@@ -99,7 +99,6 @@ def update_parametric_parameters_mle(node, data):
 
     else:
         raise Exception("Unknown parametric " + str(type(node)))
-
 
 if __name__ == "__main__":
     node = MultivariateGaussian(np.inf, np.inf)

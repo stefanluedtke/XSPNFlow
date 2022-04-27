@@ -28,7 +28,7 @@ class CLTree(Leaf):
         raise Exception("Not Implemented")
 
 
-def create_cltree_leaf(data, ds_context, scope):
+def create_cltree_leaf(data, ds_context, scope, alpha=0):
     from spn.structure.leaves.cltree.MLE import update_cltree_parameters_mle
 
     node = CLTree(scope, data)

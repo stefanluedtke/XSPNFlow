@@ -6,7 +6,7 @@ Created on March 30, 2018
 
 import numpy as np
 
-from spn.algorithms.StructureLearning import get_next_operation, learn_structure
+from spn.algorithms.StructureLearning import get_next_operation, get_next_operation_exchangeability, learn_structure
 from spn.algorithms.CnetStructureLearning import get_next_operation_cnet, learn_structure_cnet
 from spn.algorithms.Validity import is_valid
 
@@ -20,6 +20,10 @@ from spn.algorithms.splitting.Conditioning import (
     get_split_rows_naive_mle_conditioning,
     get_split_rows_random_conditioning,
 )
+
+from spn.algorithms.Exchangeability import *
+
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,12 +49,16 @@ def get_splitting_functions(cols, rows, ohe, threshold, rand_gen, n_jobs):
     from spn.algorithms.splitting.Clustering import get_split_rows_KMeans, get_split_rows_TSNE, get_split_rows_GMM
     from spn.algorithms.splitting.PoissonStabilityTest import get_split_cols_poisson_py
     from spn.algorithms.splitting.RDC import get_split_cols_RDC_py, get_split_rows_RDC_py
+    from spn.algorithms.splitting.ParametricTests import get_split_cols_GTest
+
 
     if isinstance(cols, str):
         if cols == "rdc":
             split_cols = get_split_cols_RDC_py(threshold, rand_gen=rand_gen, ohe=ohe, n_jobs=n_jobs)
         elif cols == "poisson":
             split_cols = get_split_cols_poisson_py(threshold, n_jobs=n_jobs)
+        elif cols == "gtest":
+            split_cols = get_split_cols_GTest(threshold,rand_gen)
         else:
             raise AssertionError("unknown columns splitting strategy type %s" % str(cols))
     else:
@@ -153,24 +161,30 @@ def learn_parametric(
     memory=None,
     rand_gen=None,
     cpus=-1,
+    isExchangeableTest=isExchangeable_viaChiSquared_pairwise,
+    doTestExchangeability=True,
+    alpha=0,
+    alpha_exchangeable=0,
 ):
     if leaves is None:
-        leaves = create_parametric_leaf
+        leaves =  create_parametric_leaf
 
     if rand_gen is None:
         rand_gen = np.random.RandomState(17)
 
-    def learn_param(data, ds_context, cols, rows, min_instances_slice, threshold, ohe):
+    def learn_param(data, ds_context, cols, rows, min_instances_slice, threshold, ohe,alpha):
         split_cols, split_rows = get_splitting_functions(cols, rows, ohe, threshold, rand_gen, cpus)
 
-        nextop = get_next_operation(min_instances_slice, min_features_slice, multivariate_leaf, cluster_univariate)
-
-        return learn_structure(data, ds_context, split_rows, split_cols, leaves, nextop)
+        if doTestExchangeability:
+            nextop = get_next_operation_exchangeability(min_instances_slice, min_features_slice, multivariate_leaf, cluster_univariate)
+        else:
+            nextop = get_next_operation(min_instances_slice, min_features_slice, multivariate_leaf, cluster_univariate)
+        return learn_structure(data, ds_context, split_rows, split_cols, leaves, nextop,isExchangeableTest=isExchangeableTest,alpha=alpha,alpha_exchangeable=alpha_exchangeable)
 
     if memory:
         learn_param = memory.cache(learn_param)
 
-    return learn_param(data, ds_context, cols, rows, min_instances_slice, threshold, ohe)
+    return learn_param(data, ds_context, cols, rows, min_instances_slice, threshold, ohe,alpha)
 
 
 def learn_cnet(
