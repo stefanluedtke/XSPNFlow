@@ -123,8 +123,8 @@ If you find this repository useful, please consider citing the following paper:
 
 ## Authors
 
-Stefan Lüdtke, University of Mannheim
-For the authors and contributors of SPFlow, see their [readme file](README_SPFLOW.md).
+* Stefan Lüdtke, University of Mannheim
+* For the authors and contributors of SPFlow, see their [readme file](README_SPFLOW.md).
 
 ## License
 
