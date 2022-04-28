@@ -108,3 +108,24 @@ ll_spn = np.mean(log_likelihood(spn,data_test))
 ## Datasets
 
 This repository also contains the [synthetic](src/spn/data/relational_synthetic/) and [real](src/spn/data/relational_real/) relational datasets used in the paper.
+
+## Citation
+
+If you find this repository useful, please consider citing the following paper:
+```
+@inproceedings{luedtke2022exchangeability,
+  author = {Stefan Lüdtke and Christian Bartelt and Heiner Stuckenschmidt},
+  title = {Exchangeability-Aware Sum-Product Networks},
+  booktitle={Proceedings of the 31st International Joint Conference on Artificial Intelligence},
+  year = {2022}
+}
+```
+
+## Authors
+
+Stefan Lüdtke, University of Mannheim
+For the authors and contributors of SPFlow, see their [readme file](README_SPFLOW.md).
+
+## License
+
+This project is licensed under the Apache License, Version 2.0 - see the [LICENSE.md](LICENSE.md) file for details.
