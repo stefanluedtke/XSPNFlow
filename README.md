@@ -17,9 +17,7 @@ XSPNs can be constructed like this:
 from spn.algorithms.Exchangeability import Exchangeable
 from spn.structure.Base import Sum, Product
 from spn.structure.leaves.parametric.Parametric import Categorical
-from spn.algorithms.Inference import likelihood
 import pandas as pd
-import numpy as np
 
 #For an exchangeable leaf, parameters w_1, ..., w_{|T|} as specified in the
 #paper need to be provided. w_t is the probability of an assignment with t ones.
@@ -35,6 +33,9 @@ xspn = Product(children=[expart,Categorical(p=[0.6,0.4],scope=2)])
 Likelihoods for samples can be computed as usual:
 
 ```python
+import numpy as np
+from spn.algorithms.Inference import likelihood
+
 data = np.array([
 [0,0,0],
 [0,0,1],
@@ -49,18 +50,10 @@ ll = likelihood(xspn, data)
 It is also possible to learn XSPNs via the LearnXSPN algorithm. Let us first load the senate dataset, containing all roll call votes of 98 senators in the Senate of the 116th United States Congress.
 
 ```python
-from spn.structure.leaves.parametric.Parametric import Bernoulli, Categorical
-from spn.structure.Base import Context
-
-from spn.algorithms.LearningWrappers import learn_parametric
-from spn.algorithms.Exchangeability import *
-from spn.structure.leaves.evm.EVMLeaf import create_evm_leaf, EVM
-
-dataset = "senate116"
+import numpy as np
 
 data_train = np.loadtxt(open("spn/data/relational_real/senate116.ts.data","rb"),dtype=int,delimiter=",")
 data_test = np.loadtxt(open("spn/data/relational_real/senate116.test.data","rb"),dtype=int,delimiter=",")
-
 ```
 
 Next, we specify the parameters of the learning algorithm:
@@ -69,6 +62,13 @@ Next, we specify the parameters of the learning algorithm:
 * We use Exchageable Variable Models as multivariate leaves in the fallback case. This allows somewhat more general models than described in the paper, where only fully exchangeable distributions are discussed. Setting numComponents=1 makes the model identical to the XSPNs described in the paper. 
 
 ```python
+from spn.structure.leaves.parametric.Parametric import Bernoulli, Categorical
+from spn.structure.Base import Context
+from spn.algorithms.LearningWrappers import learn_parametric
+from spn.algorithms.Exchangeability import *
+from spn.structure.leaves.evm.EVMLeaf import create_evm_leaf, EVM
+from spn.algorithms.Inference import log_likelihood
+
 #all variables are Bernoullis
 ds_context = Context(parametric_types=[Bernoulli]*data_train.shape[1]).add_domains(data_train)
 
