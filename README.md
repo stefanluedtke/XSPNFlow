@@ -1,7 +1,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 
-# XSPNFlow: An Easy and Extensible Library for Sum-Product Networks
+# XSPNFlow: Exchangeability-Aware Sum-Product Networks
 
 This repository contains the official implementation of [Exchangeability-Aware Sum-Product Network](https://arxiv.org/abs/2110.05165) (XSPNs), introduced in the paper by Stefan Lüdtke, Christian Bartelt, and Heiner Stuckenschmidt, published at IJCAI 2022. 
 The implementation is based on [SPFlow](https://github.com/SPFlow/SPFlow). For an introduction to SPFlow, see their [original Readme file](README_SPFLOW.md). 
@@ -104,3 +104,7 @@ Finally, we can compute the test log likelihood of both models. We should get ll
 ll_xspn = np.mean(log_likelihood(xspn,data_test)) 
 ll_spn = np.mean(log_likelihood(spn,data_test)) 
 ```
+
+## Datasets
+
+This repository also contains the [synthetic](src/spn/data/relational_synthetic/) and [real](src/spn/data/relational_real/) relational datasets used in the paper.
