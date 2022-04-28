@@ -8,7 +8,7 @@ The implementation is based on [SPFlow](https://github.com/SPFlow/SPFlow). For a
 
 ## Example
 
-This repository adds two new SPN leave types: Fully exchangeable, discrete distributions and Exchangeable Variable Models. We call an SPN with such leaves an “Exchangeability-Aware SPN” (XSPN). 
+This work adds two new SPN leave types to the existing types in SPFlow: Fully exchangeable, discrete distributions and Exchangeable Variable Models. We call an SPN with such leaves an “Exchangeability-Aware SPN” (XSPN). 
 
 ### Manually constructing XSPNs
 XSPNs can be constructed like this: 
